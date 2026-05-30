@@ -171,6 +171,14 @@ def tail_npz_arrays(arrays: dict[str, np.ndarray], sample_count: int) -> dict[st
     return {key: arrays[key][-sample_count:].copy() for key in NPZ_ARRAY_KEYS}
 
 
+def repeat_tail_npz_arrays(arrays: dict[str, np.ndarray], sample_count: int) -> dict[str, np.ndarray]:
+    available_count = int(arrays["x"].shape[0])
+    source_count = min(sample_count, available_count)
+    source_arrays = tail_npz_arrays(arrays, source_count)
+    indices = np.arange(sample_count) % source_count
+    return {key: source_arrays[key][indices].copy() for key in NPZ_ARRAY_KEYS}
+
+
 def complete_training_data_from_buffer(
     training_data_path: str | os.PathLike[str] = MERGED_TRAINING_DATA_PATH,
     buffer_path: str | os.PathLike[str] = replay_buffer_path(),
@@ -180,21 +188,16 @@ def complete_training_data_from_buffer(
     if current_count >= max_raw_samples:
         print(f"[Buffer] Current training data already has {current_count} samples.")
         return current_count
-    if not os.path.exists(buffer_path):
-        print(f"[Buffer] No replay buffer found. Training with {current_count} samples.")
-        return current_count
 
     needed_count = max_raw_samples - current_count
     current_arrays = load_npz_arrays(training_data_path)
     buffer_arrays = load_npz_arrays(buffer_path)
-    buffer_count = int(buffer_arrays["x"].shape[0])
-    selected_buffer_count = min(needed_count, buffer_count)
-    selected_buffer_arrays = tail_npz_arrays(buffer_arrays, selected_buffer_count)
+    selected_buffer_arrays = repeat_tail_npz_arrays(buffer_arrays, needed_count)
     completed_arrays = concatenate_npz_arrays([selected_buffer_arrays, current_arrays])
     save_npz_arrays(training_data_path, completed_arrays)
     completed_count = int(completed_arrays["x"].shape[0])
     print(
-        f"[Buffer] Added {selected_buffer_count} replay samples to training data "
+        f"[Buffer] Added {needed_count} replay samples to training data "
         f"({current_count} -> {completed_count})."
     )
     return completed_count

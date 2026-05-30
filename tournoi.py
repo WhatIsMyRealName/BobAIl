@@ -420,7 +420,7 @@ def run_tournament(
     save_matrix_csv(logger, "tournoi_matrix.csv", "green\\red", matrix_rows, agent_names, win_counts)
     save_matrix_csv(logger, "tournoi_win_rate_matrix.csv", "green\\red", matrix_rows, agent_names, win_rates)
     save_matrix_csv(logger, "tournoi_score_rate_matrix.csv", "green\\red", matrix_rows, agent_names, score_rates)
-    logger.plot_tournament_matrix(matrix_rows, agent_names, score_rates, "tournoi_matrix.png", cell_labels=win_counts)
+    logger.plot_tournament_matrix(matrix_rows, agent_names, score_rates)
     return summary
 
 def build_green_win_matrix(

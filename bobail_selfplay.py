@@ -169,7 +169,7 @@ def generate_dataset_parallel(
     if ppe <= 0:
         raise ValueError("ppe must be strictly positive")
     if num_workers is None:
-        num_workers = max(1, min(ppe, (os.cpu_count() or 1) - 1))
+        num_workers = max(1, min(ppe, (os.cpu_count() or 1) - 2))
     if num_workers <= 0:
         raise ValueError("num_workers must be strictly positive")
 

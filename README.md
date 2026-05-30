@@ -1,1 +1,8 @@
 # BobAIl
+Bobail est un jeu traditionnel africain, très proche du jeu allemand Neutron, mais plus ancien et les mouvements diffèrent légèrement.
+
+# Equilibrage
+Bien que le programme actuel implémente la règle d'équité lors du premier coup (à savoir que le premier joueur, pour son premier coup, ne déplace qu'un pion, et pas le bobail), le réseau semble confirmer un biais qu'ont déjà repéré les meilleurs joueurs : le premier joueur gagne souvent. Aussi, l'efficacité d'un réseau ne se mesure pas tant à sa capacité à jouer contre lui-même (s'il joue parfaitement on peut supposer que le premier joueur gagnera toujours, quelle que soit la qualité de la défense, il ne faut pas voir ici de problème) mais au contraire qu'elle se mesure à sa capacité à ne pas perdre en jouant en deuxième contre d'autres réseaux.
+Ainsi, un réseau qui gagne 50% du temps en temps que 2ème joueur est excellent, tandis qu'un réseau qui gagne moins de 70% du temps en premier joueur est mauvais.
+
+Il serait peut-être intéressant à long terme de s'intéresser à des plateaux de taille différente, par exemple 7x7, qui rétrablieraient l'équilibre en proposant des situations plus subtiles, et surtout en laissant plus de temps au deuxième joueur pour organiser sa défense, tout en augmentant le facteur de branchage du jeu, ce qui complique la tache du premier joueur. Une autre option serait d'imposer une règle d'équilibrage plus forte, mais qui risque de dénaturer le jeu.

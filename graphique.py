@@ -24,7 +24,6 @@ RED_COLOR = "#cc0000"
 SELECTED_TOKEN_BORDER = "#f0b324"
 DEST_BORDER = "#02ba02"
 MODEL_PATH = "./bobail_zero.pth"
-
 ColorName: TypeAlias = Literal["green", "red"]
 GoalSide: TypeAlias = Literal["top", "bottom"]
 

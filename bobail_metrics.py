@@ -1,19 +1,23 @@
 import csv
 import math
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any
 
+import matplotlib
+
+matplotlib.use("Agg", force=True)
+import matplotlib.pyplot as plt
 import numpy as np
 
-
 METRICS_DIR = Path("metrics")
-
+ITERATION_NAME_RE = re.compile(r"bobail_zero_iter_0*(\d+)$")
+ITERATION_BASELINE = 6
 
 def now_seconds() -> float:
     return time.time()
-
 
 def entropy(values: np.ndarray) -> float:
     probs = values.astype(np.float64)
@@ -24,7 +28,6 @@ def entropy(values: np.ndarray) -> float:
     probs = probs[probs > 0]
     return float(-(probs * np.log(probs)).sum())
 
-
 def numeric_summary(values: list[float]) -> dict[str, float]:
     arr = np.array(values, dtype=np.float64)
     return {
@@ -33,7 +36,6 @@ def numeric_summary(values: list[float]) -> dict[str, float]:
         "min": float(arr.min()),
         "max": float(arr.max()),
     }
-
 
 def aggregate_numeric(records: list[dict[str, Any]], prefix: str = "") -> dict[str, float]:
     grouped: dict[str, list[float]] = {}
@@ -113,11 +115,6 @@ class MetricsLogger:
         return path
 
     def plot_training(self, filename: str | None = None) -> Path:
-        import matplotlib
-
-        matplotlib.use("Agg", force=True)
-        import matplotlib.pyplot as plt
-
         all_records = self.load()
         records = [record for record in all_records if record.get("phase") == "training_epoch"]
         accuracy_records = [record for record in all_records if record.get("phase") == "accuracy"]
@@ -139,12 +136,13 @@ class MetricsLogger:
             self._plot_metric(ax, x, records, "train_loss", "Train")
             self._plot_metric(ax, x, records, "val_loss", "Validation")
             self._draw_episode_boundaries(ax, records)
-            ax.set_title("Loss totale")
-            ax.set_xlabel("Epoch globale")
-            ax.set_ylabel("Loss")
-            self._start_y_axis_at_zero(ax)
-            self._start_x_axis_at_zero(ax)
-            ax.grid(True, alpha=0.25)
+            self._configure_axis(
+                ax,
+                "Loss totale d'entraînement et de validation",
+                "Epoch globale",
+                "Loss",
+                start_y_at_zero=True,
+            )
             self._show_legend_if_present(ax)
 
             ax = axes[0, 1]
@@ -153,12 +151,13 @@ class MetricsLogger:
             self._plot_metric(ax, x, records, "train_value_loss", "Train value")
             self._plot_metric(ax, x, records, "val_value_loss", "Val value")
             self._draw_episode_boundaries(ax, records)
-            ax.set_title("Loss policy / value")
-            ax.set_xlabel("Epoch globale")
-            ax.set_ylabel("Loss")
-            self._start_y_axis_at_zero(ax)
-            self._start_x_axis_at_zero(ax)
-            ax.grid(True, alpha=0.25)
+            self._configure_axis(
+                ax,
+                "Détail des loss policy et value",
+                "Epoch globale",
+                "Loss",
+                start_y_at_zero=True,
+            )
             self._show_legend_if_present(ax)
 
             ax = axes[1, 0]
@@ -174,12 +173,13 @@ class MetricsLogger:
             self._plot_metric(ax, x_acc, accuracy_records, "val_top1", "Val top1")
             self._plot_metric(ax, x_acc, accuracy_records, "train_top5", "Train top5")
             self._plot_metric(ax, x_acc, accuracy_records, "val_top5", "Val top5")
-            ax.set_title("Accuracy policy")
-            ax.set_xlabel("Iteration")
-            ax.set_ylabel("Accuracy")
-            ax.set_ylim(0.0, 1.02)
-            self._start_x_axis_at_zero(ax)
-            ax.grid(True, alpha=0.25)
+            self._configure_axis(
+                ax,
+                "Accuracy de la policy sur les coups légaux",
+                "Itération",
+                "Accuracy",
+                y_limits=(0.0, 1.02),
+            )
             self._show_legend_if_present(ax)
         else:
             ax.axis("off")
@@ -189,11 +189,6 @@ class MetricsLogger:
         return output_path
 
     def plot_selfplay(self, filename: str | None = None) -> Path:
-        import matplotlib
-
-        matplotlib.use("Agg", force=True)
-        import matplotlib.pyplot as plt
-
         all_records = self.load()
         records = [record for record in all_records if record.get("phase") == "self_play_generation"]
         dataset_records = [record for record in all_records if record.get("phase") == "dataset_stats"]
@@ -213,33 +208,36 @@ class MetricsLogger:
             ax = axes[0, 0]
             self._plot_metric(ax, x_dataset, dataset_records, "raw_samples", "Bruts")
             self._plot_metric(ax, x_dataset, dataset_records, "dedup_samples", "Après dédup")
-            ax.set_title("Samples")
-            ax.set_xlabel("Iteration")
-            ax.set_ylabel("Samples")
-            self._start_y_axis_at_zero(ax)
-            self._start_x_axis_at_zero(ax)
-            ax.grid(True, alpha=0.25)
+            self._configure_axis(
+                ax,
+                "Taille du dataset avant et après déduplication",
+                "Itération",
+                "Nombre de samples",
+                start_y_at_zero=True,
+            )
             self._show_legend_if_present(ax)
 
             ax = axes[1, 0]
             self._plot_metric(ax, x_dataset, dataset_records, "y_pi_entropy_mean", "Entropie y_pi")
-            ax.set_title("Entropie policy")
-            ax.set_xlabel("Iteration")
-            ax.set_ylabel("Entropie moyenne")
-            self._start_y_axis_at_zero(ax)
-            self._start_x_axis_at_zero(ax)
-            ax.grid(True, alpha=0.25)
+            self._configure_axis(
+                ax,
+                "Entropie moyenne des distributions de policy cibles",
+                "Itération",
+                "Entropie moyenne",
+                start_y_at_zero=True,
+            )
             self._show_legend_if_present(ax)
 
             ax = axes[1, 1]
             self._plot_metric(ax, x_dataset, dataset_records, "y_v_mean", "Moyenne y_v")
             ax.axhline(0.0, color="black", linewidth=0.8, alpha=0.35)
-            ax.set_title("Valeur cible")
-            ax.set_xlabel("Iteration")
-            ax.set_ylabel("Moyenne")
-            ax.set_ylim(-1.0, 1.0)
-            self._start_x_axis_at_zero(ax)
-            ax.grid(True, alpha=0.25)
+            self._configure_axis(
+                ax,
+                "Valeur cible moyenne des positions générées",
+                "Itération",
+                "Moyenne y_v",
+                y_limits=(-1.0, 1.0),
+            )
             self._show_legend_if_present(ax)
         else:
             axes[0, 0].axis("off")
@@ -250,12 +248,13 @@ class MetricsLogger:
             x = np.array([float(record["episode"]) for record in records], dtype=np.float64)
             ax = axes[0, 1]
             self._plot_metric(ax, x, records, "avg_moves_per_game", "Coups moyens")
-            ax.set_title("Longueur des parties")
-            ax.set_xlabel("Iteration")
-            ax.set_ylabel("Coups")
-            self._start_y_axis_at_zero(ax)
-            self._start_x_axis_at_zero(ax)
-            ax.grid(True, alpha=0.25)
+            self._configure_axis(
+                ax,
+                "Longueur moyenne des parties de self-play",
+                "Itération",
+                "Coups par partie",
+                start_y_at_zero=True,
+            )
             self._show_legend_if_present(ax)
 
             ax_depth = ax.twinx()
@@ -277,47 +276,38 @@ class MetricsLogger:
         columns: list[str],
         matrix: np.ndarray,
         filename: str = "tournoi_matrix.png",
-        cell_labels: np.ndarray | None = None,
     ) -> Path:
-        import matplotlib
-
-        matplotlib.use("Agg", force=True)
-        from matplotlib.colors import LinearSegmentedColormap
-        import matplotlib.pyplot as plt
-
         output_path = self.directory / filename
-        fig, ax = plt.subplots(figsize=(max(6, 1.2 * len(columns)), max(5, 1.0 * len(rows))))
-        cmap = LinearSegmentedColormap.from_list("green_score", ["#c62828", "#ffffff", "#2e7d32"])
+        row_labels = [self._display_name(name) for name in rows]
+        column_labels = [self._display_name(name) for name in columns]
+        fig_width = max(9.0, 1.8 * len(columns))
+        fig_height = max(6.0, 1.35 * len(rows))
+        fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+        cmap = plt.colormaps["RdYlGn"].copy()
         cmap.set_bad("#e0e0e0")
         image = ax.imshow(np.ma.masked_invalid(matrix), cmap=cmap, vmin=0.0, vmax=1.0)
-        ax.set_xticks(np.arange(len(columns)), labels=columns, rotation=45, ha="right")
-        ax.set_yticks(np.arange(len(rows)), labels=rows)
-        ax.set_xlabel("Rouge (joueur 2)")
-        ax.set_ylabel("Vert (joueur 1, commence)")
-        ax.set_title("Tournoi - victoires du vert")
+        ax.set_xticks(np.arange(len(columns)), labels=column_labels, rotation=35, ha="right")
+        ax.set_yticks(np.arange(len(rows)), labels=row_labels)
+        ax.set_xlabel("Agent rouge (joueur 2)")
+        ax.set_ylabel("Agent vert (joueur 1)")
+        ax.set_title("Tournoi - score du joueur vert contre le joueur rouge")
         for i in range(len(rows)):
             for j in range(len(columns)):
                 value = matrix[i, j]
                 if np.isnan(value):
                     label = ""
-                elif cell_labels is not None:
-                    label_value = cell_labels[i, j]
-                    label = "" if np.isnan(label_value) else f"{int(label_value)}"
                 else:
-                    label = f"{value:.2f}"
+                    label = self._format_percent(value)
                 ax.text(j, i, label, ha="center", va="center", color="black")
-        fig.colorbar(image, ax=ax, label="Score relatif vert")
+        colorbar = fig.colorbar(image, ax=ax, label="Score du vert")
+        colorbar.set_ticks([0.0, 0.25, 0.5, 0.75, 1.0])
+        colorbar.set_ticklabels(["0 %", "25 %", "50 %", "75 %", "100 %"])
         fig.tight_layout()
         fig.savefig(output_path, dpi=140)
         plt.close(fig)
         return output_path
 
     def plot(self, filename: str | None = None) -> Path:
-        import matplotlib
-
-        matplotlib.use("Agg", force=True)
-        import matplotlib.pyplot as plt
-
         records = self.load()
         filename = filename or f"{self.run_name}.png"
         output_path = self.directory / filename
@@ -414,6 +404,37 @@ class MetricsLogger:
         handles, labels = ax.get_legend_handles_labels()
         if handles and labels:
             ax.legend()
+
+    @staticmethod
+    def _configure_axis(
+        ax: Any,
+        title: str,
+        xlabel: str,
+        ylabel: str,
+        *,
+        start_y_at_zero: bool = False,
+        y_limits: tuple[float, float] | None = None,
+    ) -> None:
+        ax.set_title(title)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        if y_limits is not None:
+            ax.set_ylim(*y_limits)
+        elif start_y_at_zero:
+            MetricsLogger._start_y_axis_at_zero(ax)
+        MetricsLogger._start_x_axis_at_zero(ax)
+        ax.grid(True, alpha=0.25)
+
+    @staticmethod
+    def _display_name(name: str) -> str:
+        match = ITERATION_NAME_RE.fullmatch(name)
+        if match is None:
+            return name
+        return f"Itération {int(match.group(1)) - ITERATION_BASELINE}"
+
+    @staticmethod
+    def _format_percent(value: float) -> str:
+        return f"{value * 100:.0f} %"
 
     @staticmethod
     def _draw_episode_boundaries(ax: Any, records: list[dict[str, Any]]) -> None:

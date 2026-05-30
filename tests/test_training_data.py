@@ -63,6 +63,19 @@ class TrainingDataTests(unittest.TestCase):
             self.assertEqual(completed_count, 5)
             self.assertEqual(dataset_values(training_path), [3.0, 4.0, 5.0, 10.0, 11.0])
 
+    def test_complete_training_data_repeats_buffer_until_target_count(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            training_path = temp_path / "merged_data.npz"
+            buffer_path = temp_path / "training_buffer" / "replay_buffer.npz"
+            write_dataset(training_path, [10.0, 11.0])
+            write_dataset(buffer_path, [1.0, 2.0, 3.0])
+
+            completed_count = complete_training_data_from_buffer(training_path, buffer_path, max_raw_samples=8)
+
+            self.assertEqual(completed_count, 8)
+            self.assertEqual(dataset_values(training_path), [1.0, 2.0, 3.0, 1.0, 2.0, 3.0, 10.0, 11.0])
+
     def test_complete_training_data_skips_buffer_when_current_is_large_enough(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
